@@ -218,3 +218,29 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+
+# Node/frontend build outputs
+node_modules/
+frontend/node_modules/
+frontend/dist/
+dist/
+npm-debug.log*
+yarn-debug.log*
+
+# Local video/case data: never commit recordings or generated evidence
+data/
+frontend/public/*.mp4
+*.mp4
+*.mov
+*.avi
+*.db
+*.sqlite
+*.sqlite3
+
+# Downloaded ML model weights
+*.pt
+*.onnx
+
+# OS/editor artifacts
+.DS_Store

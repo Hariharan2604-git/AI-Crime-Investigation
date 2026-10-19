@@ -1,58 +1,137 @@
-# AI Crime Investigation
+# Nigaaani AI — AI-Assisted Video Evidence Review
 
-An AI-assisted investigation-support project concept focused on helping authorized reviewers organize and correlate evidence from multiple camera clips.
+**Nigaaani AI** is a local-first, full-stack prototype for indexing authorized video clips, retrieving candidate evidence frames from text descriptions, and organizing results for human review.
 
-The intended workflow brings candidate timestamps, cross-camera event relationships, confidence indicators, and an evidence register into one review process.
+This repository contains the React dashboard and Python API/indexing code. It is an academic/hackathon prototype, **not a production forensic system**.
 
-> **Project status:** The repository currently contains a high-level project description. The workflow and features below describe the intended system and should not be read as confirmation that every component is implemented or validated.
+## What the code currently does
 
-## Problem
+- **Video indexing:** scans local MP4 files and samples frames during indexing.
+- **Object detection and tracking:** uses Ultralytics YOLO to detect supported objects and track detections within a clip.
+- **Text-to-frame retrieval:** creates CLIP embeddings and ranks indexed frames by cosine similarity to a text query.
+- **Visual cues:** estimates coarse clothing colour from image pixels; lighting and video quality can affect the estimate.
+- **Event store and audit trail:** records indexed observations and local search/integrity activity in SQLite.
+- **Evidence integrity check:** stores SHA-256 hashes for saved evidence images and can detect later changes to those images.
+- **Rule-based alerts:** filters indexed observations by object label, camera label, and elapsed time.
+- **Local dashboard:** a React + Vite interface for reviewing candidate frames, available clips, query results, alerts, and activity.
 
-Investigators may need to review footage from several cameras, identify potentially related events, and manually compare timestamps. This can be time-consuming and makes it important to preserve a clear link between any conclusion and the source evidence.
+## Important scope boundaries
 
-## Intended Workflow
+This prototype **does not** establish a person's identity, prove guilt, or reliably reconstruct movement across independent cameras. Camera clips are not synchronized to a shared real-world clock. The CLIP score is a retrieval similarity signal, not a calibrated probability. Tamil/Hindi handling is limited keyword matching—not general translation or speech understanding. SHA-256 checks alone do not provide authenticated operators, encrypted evidence storage, or a production chain of custody.
 
-1. **Add video clips:** select footage that the user is authorized to review.
-2. **Review clip metadata:** record camera identifiers, time information, and other available context.
-3. **Explore candidate correlations:** surface potentially related events across clips for human review.
-4. **Inspect timestamps:** provide candidate time ranges and references to the original footage.
-5. **Maintain an evidence register:** keep findings organized with source references and review status.
-6. **Ask questions:** support an investigator-facing query experience, with multilingual interaction as a design goal.
-7. **Human verification:** allow reviewers to compare suggestions against the original footage and document their conclusions.
+## Technology stack
 
-## Intended Features
+| Layer | Technologies |
+|---|---|
+| Frontend | React, JavaScript, Vite, CSS |
+| API | Python, FastAPI, Uvicorn, Pydantic |
+| Video and vision | OpenCV, Ultralytics YOLO, Pillow |
+| Text/image retrieval | SentenceTransformers CLIP model, NumPy |
+| Local storage | SQLite, SHA-256 hashing |
+| Quality checks | Python syntax compilation, Vite production build via GitHub Actions |
 
-- Multi-camera video review and timeline correlation.
-- Candidate timestamps and confidence indicators.
-- An evidence register that links observations to source clips.
-- An investigator question-and-answer interface, with Tamil, Hindi, and English as intended language options.
-- A review-oriented dashboard that makes uncertainty and source provenance visible.
+## Repository layout
 
-These features describe project goals. Actual behavior, supported formats, model choices, and performance must be confirmed against the implementation before being reported as available.
+```text
+.
+├── backend/
+│   ├── app/
+│   │   ├── index_videos.py
+│   │   └── main.py
+│   ├── requirements.txt
+│   └── README.md
+├── frontend/
+│   ├── public/
+│   ├── src/
+│   │   ├── App.jsx
+│   │   ├── App.css
+│   │   ├── index.css
+│   │   └── main.jsx
+│   ├── package.json
+│   └── README.md
+├── docs/
+│   ├── ARCHITECTURE.md
+│   ├── RESPONSIBLE_USE.md
+│   └── ROADMAP.md
+├── CONTRIBUTING.md
+└── SECURITY.md
+```
 
-## Important Limitations and Safeguards
+## Run locally
 
-- **AI output is not proof of guilt.** A detected pattern, similarity, or timeline association is only a lead for further investigation.
-- **Confidence is not guilt probability.** A confidence indicator describes the relevant model or matching process; it must never be interpreted as the probability that a person committed a crime.
-- **Keep a human in the loop.** Qualified reviewers must verify candidate events against original footage and other evidence.
-- **Preserve provenance.** Keep source filenames, camera context, timestamps, and any transformations traceable.
-- **Respect privacy and authorization.** Use footage only when lawfully authorized, restrict access to sensitive evidence, and follow applicable retention and disclosure policies.
-- **Avoid unsupported identity claims.** Do not infer a person's identity or culpability from an unverified match.
+### Requirements
+- Python 3.11 recommended
+- Node.js 22 recommended
+- npm
+- Internet access on first model run to download model weights
 
-## Current Status and Setup
+### 1. Install Python dependencies
 
-This repository currently contains a high-level project description. A runnable implementation, verified dependencies, supported video formats, and tested setup commands are not yet documented here. Setup instructions should be added once those details are confirmed in code.
+From the repository root:
 
-## Development Roadmap
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r backend/requirements.txt
+mkdir -p data/videos data/evidence
+```
 
-- [ ] Document the implemented architecture and supported video formats.
-- [ ] Establish reproducible clip ingestion and timestamp handling.
-- [ ] Implement and test timeline correlation on appropriately authorized sample footage.
-- [ ] Record evidence provenance and reviewer annotations.
-- [ ] Evaluate false matches, missed events, and performance across different footage conditions.
-- [ ] Add a multilingual assistant with clear limitations and source references.
-- [ ] Provide setup instructions, screenshots, test cases, and a demo.
+On Windows, activate the environment with `.venv\\Scripts\\activate` instead of `source`.
 
-## Repository
+### 2. Add authorized local footage and index it
 
-[View AI Crime Investigation on GitHub](https://github.com/Hariharan2604-git/AI-Crime-Investigation)
+Place MP4 files you are authorized to process into `data/videos/`. The indexer also scans MP4 files in `frontend/public/`. Video footage, database files, evidence frames, and model weights are intentionally excluded from version control.
+
+```bash
+python backend/app/index_videos.py
+```
+
+The first run may download YOLO and CLIP model weights and can take time. The indexer creates a local SQLite database and evidence-frame images under `data/`.
+
+The dashboard's seven camera tiles refer to local files `camera_01.mp4` through `camera_07.mp4` in `frontend/public/`. Those files are not bundled; add matching local clips if you want those tiles to play videos. Clips in `data/videos/` can still be indexed and served by the API for result review.
+
+### 3. Start the API
+
+In a second terminal, from the repository root:
+
+```bash
+source .venv/bin/activate
+uvicorn app.main:app --app-dir backend --reload --host 127.0.0.1 --port 8000
+```
+
+The interactive API docs are available at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs), and the health endpoint is [http://127.0.0.1:8000/api/health](http://127.0.0.1:8000/api/health).
+
+### 4. Start the frontend
+
+In a third terminal:
+
+```bash
+cd frontend
+npm ci
+npm run dev -- --host 127.0.0.1
+```
+
+Open [http://localhost:5173](http://localhost:5173).
+
+### Quality checks
+
+```bash
+python -m compileall -q backend
+cd frontend
+npm ci
+npm run build
+```
+
+GitHub Actions runs these lightweight checks for pushes and pull requests.
+
+## Documentation
+- [Architecture and data flow](docs/ARCHITECTURE.md)
+- [Responsible use and limitations](docs/RESPONSIBLE_USE.md)
+- [Development roadmap](docs/ROADMAP.md)
+- [Contribution guidelines](CONTRIBUTING.md)
+- [Security notes](SECURITY.md)
+
+## Privacy and safe use
+
+Run the API on loopback only. Do not expose it to a public network: this prototype does not implement user authentication or production access control. Use only footage you are authorized to process, keep case data off Git, and review every candidate against the original source material.
